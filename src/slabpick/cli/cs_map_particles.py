@@ -181,7 +181,10 @@ def main():
     for _i, tomo in enumerate(tomo_list):
         tomo_indices = np.where(curated_map.tomogram.values == tomo)[0]
         particle_indices = curated_map.iloc[tomo_indices].particle.values
-        d_coords_sel[tomo] = d_coords[tomo][np.unique(particle_indices)]
+        if config.copick_json is not None:
+            d_coords_sel[tomo] = d_coords[str(tomo)][np.unique(particle_indices)]
+        else:
+            d_coords_sel[tomo] = d_coords[tomo][np.unique(particle_indices)]
         final_particle_count = np.sum(
             np.array([d_coords_sel[tomo].shape[0] for tomo in d_coords_sel]),
         )

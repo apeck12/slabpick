@@ -535,7 +535,7 @@ def make_minislabs_multi_entry(
                 volume = np.array(zarr.open(vol_name, "r"))
         # load volume -- copick entry
         else:
-            volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
+            volume = cp_interface.get_run_tomogram(str(run_name), voxel_spacing, tomo_type)
         coords_pixels = d_coords[run_name] / voxel_spacing
         montage.make_minislabs(coords_pixels, volume, run_name)
     montage.make_galleries(gshape, os.path.join(out_dir, "gallery"), voxel_spacing)
