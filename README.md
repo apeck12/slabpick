@@ -22,3 +22,5 @@ cs_center_picks —cs_file /path/to/picked_particles.cs —map_file path/to/gall
 ```
 4. After 2D classification, particles can be mapped back to a copick project or a Relion-4 starfile
 using the `cs_map_particles` command.
+
+Details for use in Relion to follow.
