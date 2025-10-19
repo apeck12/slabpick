@@ -10,8 +10,8 @@ class ProcessingSoftware(BaseModel):
 
 # for make_minislabs command
 class ProcessingInputMakeMinislabs(BaseModel):
-    in_coords: str
-    in_vol: Optional[str]
+    in_coords: List[str]
+    in_vol: Optional[List]
 
 
 class ProcessingOutputMakeMinislabs(BaseModel):
@@ -21,8 +21,6 @@ class ProcessingOutputMakeMinislabs(BaseModel):
 class ProcessingParametersMakeMinislabs(BaseModel):
     extract_shape: List[int]
     voxel_spacing: float
-    coords_scale: float
-    col_name: Optional[str]
     tomo_type: Optional[str]
     user_id: Optional[str]
     session_id: Optional[str]
@@ -31,9 +29,6 @@ class ProcessingParametersMakeMinislabs(BaseModel):
     gallery_shape: List[int]
     make_stack: bool
     invert_contrast: bool
-    live: bool
-    t_interval: float
-    t_exit: float
 
 
 class ProcessingConfigMakeMinislabs(BaseModel):
