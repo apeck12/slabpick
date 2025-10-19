@@ -38,12 +38,22 @@ def parse_args():
         required=False,
         help="Stack voxel spacing",
     )
+    parser.add_argument(
+        "--keep_contrast",
+        action="store_true",
+        help="Do not invert contrast",
+    )
 
     return parser.parse_args()
 
 
 def main():
+    
     config = parse_args()
+
+    contrast = -1
+    if config.keep_contrast:
+        contrast = 1
 
     stack = dataio.load_mrc(config.in_stack).copy()
     if config.voxel_spacing is None:
@@ -51,7 +61,7 @@ def main():
     
     stack = stacker.normalize_stack(stack)
     dataio.save_mrc(
-        -1*stack, 
+        contrast*stack, 
         config.out_stack, 
         apix=config.voxel_spacing,
     )
