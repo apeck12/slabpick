@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import starfile
+from tqdm import tqdm
 from argparse import ArgumentParser
 import slabpick.dataio as dataio
 from copick.impl.filesystem import CopickRootFSSpec
@@ -28,50 +29,38 @@ def parse_args():
     parser.add_argument(
         "--coords_file",
         type=str,
-        required=True,
-        help="Copick json file specifying coordinates",
+        required=False,
+        help="Copick json file specifying coordinates for backwards compatibilty for single data session cases",
     )
     parser.add_argument(
         "--particle_name",
         type=str,
-        required=False,
+        required=True,
         help="Copick particle name",
     )
     parser.add_argument(
         "--session_id",
         type=str,
-        required=False,
+        required=True,
         help="Copick session ID for input coordinates",
     )
     parser.add_argument(
         "--user_id",
         type=str,
-        required=False,
+        required=True,
         help="Copick user ID for input coordinates",
-    )
-    parser.add_argument(
-        "--out_file",
-        type=str,
-        required=False,
-        help="Output copick json or Relion-4 starfile",
     )
     parser.add_argument(
         "--session_id_out",
         type=str,
-        required=False,
+        required=True,
         help="Copick session ID for output",
     )
     parser.add_argument(
         "--user_id_out",
         type=str,
-        required=False,
+        required=True,
         help="Copick user ID for output",
-    )
-    parser.add_argument(
-        "--apix",
-        type=float,
-        required=False,
-        help="Tilt-series pixel size, inverse of this will be applied if writing out a starfile",
     )
     parser.add_argument(
         "--rejected_set",
@@ -84,17 +73,16 @@ def parse_args():
 
 def generate_config(config):
     """
-    Store command line arguments in a json file.
+    Store command line arguments in a json file written to same
+    directory that contains the particle_map.csv file.
     """
     d_config = vars(config)
 
     input_list = ["rln_file", "map_file", "coords_file"]
-    output_list = ["out_file"]
     parameter_list = [
         "particle_name",
         "session_id",
         "user_id",
-        "apix",
         "session_id_out",
         "user_id_out",
         "rejected_set",
@@ -103,35 +91,43 @@ def generate_config(config):
     reconfig = {}
     reconfig["software"] = {"name": "slabpick", "version": "0.1.0"}
     reconfig["input"] = {k: d_config[k] for k in input_list}
-    reconfig["output"] = {k: d_config[k] for k in output_list}
     reconfig["parameters"] = {k: d_config[k] for k in parameter_list}
 
     reconfig = ProcessingConfigRlnMapParticles(**reconfig)
 
-    out_dir = os.path.dirname(os.path.abspath(config.out_file))
+    out_dir = os.path.dirname(os.path.abspath(config.map_file))
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "rln_map_particles.json"), "w") as f:
         f.write(reconfig.model_dump_json(indent=4))
 
 
+def curate_data_session(d_coords: dict, curated_map_session: pd.DataFrame) -> dict:
+    """
+    Retain the selected particles from a data session. The curated_map_
+    session should contain only selected particles for one data session.
+    
+    Parameters
+    ----------
+    d_coords: dictionary mapping tomograms to coords
+    curated_map_session: curated particle map for the session
+    
+    Returns
+    -------
+    d_coords_sel: dict mapping tomograms to selected coords
+    """
+    tomo_list = np.unique(curated_map_session.tomogram.values)
+    d_coords_sel = {}
+    for _i, tomo in enumerate(tomo_list):    
+        tomo_indices = np.where(curated_map_session.tomogram.values == tomo)[0]
+        particle_indices = curated_map_session.iloc[tomo_indices].particle.values
+        d_coords_sel[tomo] = d_coords[tomo][np.unique(particle_indices)] 
+    return d_coords_sel
+
+        
 def main():
 
     config = parse_args()
-    if config.out_file is None:
-        config.out_file = config.coords_file
-    generate_config(config)
-    
-    # extract particle coordinates
-    cp_interface = dataio.CopickInterface(config.coords_file)
-    d_coords = cp_interface.get_all_coords(
-        config.particle_name,
-        user_id=config.user_id,
-        session_id=config.session_id,
-    )
-    ini_particle_count = np.sum(
-        np.array([d_coords[tomo].shape[0] for tomo in d_coords]),
-    )
-    
+
     # map retained particles from Relion back to gallery tiles
     rln_particles = starfile.read(config.rln_file)["particles"]
     indices = np.array([fn.split("@")[0] for fn in rln_particles.rlnImageName.values]).astype(int)
@@ -140,26 +136,44 @@ def main():
         print("Selecting the rejected particles")
         indices = np.setdiff1d(np.arange(len(particles_map)), indices)
     curated_map = particles_map.iloc[indices]
-    
-    # curate particles, retaining a particle if any of its tilts is selected
-    d_coords_sel = {}
-    tomo_list = np.unique(curated_map.tomogram.values)
-    for _i, tomo in enumerate(tomo_list):
-        tomo_indices = np.where(curated_map.tomogram.values == tomo)[0]
-        particle_indices = curated_map.iloc[tomo_indices].particle.values
-        d_coords_sel[tomo] = d_coords[tomo][np.unique(particle_indices)] 
-        final_particle_count = np.sum(np.array([d_coords_sel[tomo].shape[0] for tomo in d_coords_sel]))
-    print(f"Retained {final_particle_count} of {ini_particle_count}",)
 
-    if os.path.splitext(config.out_file)[1] == '.json':
-        print("Writing retained coordinates to a copick experiment")
-        root = CopickRootFSSpec.from_file(config.out_file)
-        dataio.coords_to_copick(root, d_coords_sel, config.particle_name, config.session_id_out, config.user_id_out)
-    elif os.path.splitext(config.out_file)[1] == '.star':
-        print("Writing retained coordinates to a Relion-4 star file")
-        dataio.make_starfile(d_coords_sel, config.out_file, coords_scale=1.0/config.apix)
+    # retrieve sessions that will be used and write parameter config
+    if 'session' not in particles_map.columns:
+        if config.coords_file is None:
+            raise ValueError("The --coords_file must be specified")
+        session_list = [config.coords_file]
     else:
-        raise ValueError(f"Unrecognized output argument, should be copick json or starfile")
+        session_list = np.unique(curated_map.session.values)
+    config.coords_file = list(session_list)
+    generate_config(config)
+
+    # loop over data sessions
+    counts = 0
+    for sconfig in tqdm(session_list):
+        # get original coordinates
+        cp_interface = dataio.CopickInterface(sconfig)
+        d_coords = cp_interface.get_all_coords(
+            config.particle_name,
+            user_id=config.user_id,
+            session_id=config.session_id,
+        )
+        ini_particle_count = np.sum(np.array([d_coords[tomo].shape[0] for tomo in d_coords]),)
+
+        # curate coordinates, retaining only the selected particles
+        if 'session' not in particles_map.columns:
+            curated_map_session = curated_map
+        else:
+            curated_map_session = curated_map[curated_map.session==sconfig]
+        d_coords_sel = curate_data_session(d_coords, curated_map_session)
+        final_particle_count = np.sum(np.array([d_coords_sel[tomo].shape[0] for tomo in d_coords_sel]))
+        print(f"Retained {final_particle_count} of {ini_particle_count} from {sconfig}",)
+        counts += final_particle_count
+
+        # write retained coordinates to copick project
+        root = CopickRootFSSpec.from_file(sconfig)
+        dataio.coords_to_copick(root, d_coords_sel, config.particle_name, config.session_id_out, config.user_id_out)
+
+    assert counts == len(rln_particles)
 
     
 if __name__ == "__main__":

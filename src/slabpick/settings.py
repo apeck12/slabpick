@@ -95,18 +95,13 @@ class ProcessingConfigCsMapParticles(BaseModel):
 class ProcessingInputRlnMapParticles(BaseModel):
     rln_file: str
     map_file: str
-    coords_file: str
+    coords_file: List[str]
     
-    
-class ProcessingOutputRlnMapParticles(BaseModel):
-    out_file: str
-
     
 class ProcessingParametersRlnMapParticles(BaseModel):
     particle_name: str
     session_id: Optional[str]
     user_id: Optional[str]
-    apix: Optional[float]
     session_id_out: Optional[str]
     user_id_out: Optional[str]
     rejected_set: bool
@@ -115,5 +110,4 @@ class ProcessingParametersRlnMapParticles(BaseModel):
 class ProcessingConfigRlnMapParticles(BaseModel):
     software: ProcessingSoftware
     input: ProcessingInputRlnMapParticles
-    output: ProcessingOutputRlnMapParticles
     parameters: ProcessingParametersRlnMapParticles
