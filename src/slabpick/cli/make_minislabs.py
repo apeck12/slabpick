@@ -101,6 +101,20 @@ def parse_args():
         action="store_true",
         help="Invert default contrast",
     )
+    parser.add_argument(
+        "--border_factor",
+        type=float,
+        default=1.1,
+        required=False,
+        help="Multiplicative factor times mean for gallery border value",
+    )
+    parser.add_argument(
+        "--border_width",
+        type=int,
+        default=2,
+        required=False,
+        help="Number of border pixels for around each tile",
+    )
 
     return parser.parse_args()
 
@@ -148,6 +162,8 @@ def main():
         gshape=tuple(config.gallery_shape),
         make_stack=config.make_stack,
         invert_contrast=config.invert_contrast,
+        border_factor=config.border_factor,
+        border_width=config.border_width,
     )
     
     

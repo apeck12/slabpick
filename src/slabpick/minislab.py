@@ -589,6 +589,8 @@ def make_minislabs_multisession(
     gshape: tuple[int,int]=(16,15),
     make_stack: bool=False,
     invert_contrast: bool=False,
+    border_factor: float=1.1,
+    border_width: int=2,
 )->None:
     """
     Generate minislabs from multiple copick sessions and associated volumes.
@@ -614,6 +616,8 @@ def make_minislabs_multisession(
     gshape: gallery shape (nrows, ncols)
     make_stack: if True, generate particle stack instead of galleries
     invert_contrast: if True, invert default contrast
+    border_factor: multiplicative factor times mean for border value
+    border_width: number of border pixels for around each tile
     """
     
     os.makedirs(out_dir, exist_ok=True)
@@ -627,6 +631,9 @@ def make_minislabs_multisession(
     n_tiles = np.prod(np.array(gshape))
     montage = Minislab(extract_shape, angles)
 
+    if in_vol is None:
+        in_vol = len(in_coords) * [None]
+        
     for cp_project,vol_dir in zip(in_coords, in_vol):
         print(f"Processing session {cp_project}")
         cp_interface = dataio.CopickInterface(cp_project)
@@ -657,14 +664,14 @@ def make_minislabs_multisession(
                 for ng in range(n_galleries):
                     gstart = ng + goffset
                     key_list = np.arange(gstart*n_tiles, gstart*n_tiles+n_tiles).astype(int)
-                    gallery = montage.make_one_gallery(gshape, key_list, contrast=contrast)
+                    gallery = montage.make_one_gallery(gshape, key_list, contrast=contrast, border_factor=border_factor, border_width=border_width)
                     dataio.save_mrc(gallery, os.path.join(out_dir, f"particles_{montage.num_galleries-1:03d}.mrc"), apix=voxel_spacing)
                     for k in key_list:
                         montage.minislabs.pop(k)
 
     if not make_stack:
         key_list = list(montage.minislabs.keys())
-        gallery = montage.make_one_gallery(gshape, key_list, contrast=contrast)
+        gallery = montage.make_one_gallery(gshape, key_list, contrast=contrast, border_factor=border_factor, border_width=border_width)
         dataio.save_mrc(gallery, os.path.join(out_dir, f"particles_{montage.num_galleries-1:03d}.mrc"), apix=voxel_spacing)
         montage.make_gallery_bookkeeper(out_dir)
 

@@ -29,6 +29,8 @@ class ProcessingParametersMakeMinislabs(BaseModel):
     gallery_shape: List[int]
     make_stack: bool
     invert_contrast: bool
+    border_factor: float
+    border_width: int
 
 
 class ProcessingConfigMakeMinislabs(BaseModel):
