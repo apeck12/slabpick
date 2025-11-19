@@ -1,4 +1,5 @@
 import os
+import json
 import numpy as np
 import pandas as pd
 import starfile
@@ -6,7 +7,6 @@ from tqdm import tqdm
 from argparse import ArgumentParser
 import slabpick.dataio as dataio
 from copick.impl.filesystem import CopickRootFSSpec
-from slabpick.settings import ProcessingConfigRlnMapParticles
 
 
 def parse_args():
@@ -51,6 +51,18 @@ def parse_args():
         help="Copick user ID for input coordinates",
     )
     parser.add_argument(
+        "--out_file",
+        type=str,
+        required=False,
+        help="Output copick json or Relion-4 starfile",
+    )
+    parser.add_argument(
+        "--particle_name_out",
+        type=str,
+        required=False,
+        help="Copick particle name for output if different from input",
+    )
+    parser.add_argument(
         "--session_id_out",
         type=str,
         required=True,
@@ -83,6 +95,8 @@ def generate_config(config):
         "particle_name",
         "session_id",
         "user_id",
+        "apix",
+        "particle_name_out",
         "session_id_out",
         "user_id_out",
         "rejected_set",
@@ -93,12 +107,10 @@ def generate_config(config):
     reconfig["input"] = {k: d_config[k] for k in input_list}
     reconfig["parameters"] = {k: d_config[k] for k in parameter_list}
 
-    reconfig = ProcessingConfigRlnMapParticles(**reconfig)
-
     out_dir = os.path.dirname(os.path.abspath(config.map_file))
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "rln_map_particles.json"), "w") as f:
-        f.write(reconfig.model_dump_json(indent=4))
+        json.dump(reconfig, f, indent=4)
 
 
 def curate_data_session(d_coords: dict, curated_map_session: pd.DataFrame) -> dict:
@@ -128,6 +140,12 @@ def main():
 
     config = parse_args()
 
+    if config.out_file is None:
+        config.out_file = config.coords_file
+    if config.particle_name_out is None:
+        config.particle_name_out = config.particle_name
+    generate_config(config)
+    
     # map retained particles from Relion back to gallery tiles
     rln_particles = starfile.read(config.rln_file)["particles"]
     indices = np.array([fn.split("@")[0] for fn in rln_particles.rlnImageName.values]).astype(int)
@@ -136,6 +154,7 @@ def main():
         print("Selecting the rejected particles")
         indices = np.setdiff1d(np.arange(len(particles_map)), indices)
     curated_map = particles_map.iloc[indices]
+
 
     # retrieve sessions that will be used and write parameter config
     if 'session' not in particles_map.columns:
@@ -171,7 +190,7 @@ def main():
 
         # write retained coordinates to copick project
         root = CopickRootFSSpec.from_file(sconfig)
-        dataio.coords_to_copick(root, d_coords_sel, config.particle_name, config.session_id_out, config.user_id_out)
+        dataio.coords_to_copick(root, d_coords_sel, config.particle_name_out, config.session_id_out, config.user_id_out)
 
     assert counts == len(rln_particles)
 
