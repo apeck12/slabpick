@@ -1,11 +1,11 @@
 import os
+import json
 import numpy as np
 import pandas as pd
 import starfile
 from argparse import ArgumentParser
 import slabpick.dataio as dataio
 from copick.impl.filesystem import CopickRootFSSpec
-from slabpick.settings import ProcessingConfigRlnMapParticles
 
 
 def parse_args():
@@ -56,6 +56,12 @@ def parse_args():
         help="Output copick json or Relion-4 starfile",
     )
     parser.add_argument(
+        "--particle_name_out",
+        type=str,
+        required=False,
+        help="Copick particle name for output if different from input",
+    )
+    parser.add_argument(
         "--session_id_out",
         type=str,
         required=False,
@@ -95,6 +101,7 @@ def generate_config(config):
         "session_id",
         "user_id",
         "apix",
+        "particle_name_out",
         "session_id_out",
         "user_id_out",
         "rejected_set",
@@ -106,12 +113,10 @@ def generate_config(config):
     reconfig["output"] = {k: d_config[k] for k in output_list}
     reconfig["parameters"] = {k: d_config[k] for k in parameter_list}
 
-    reconfig = ProcessingConfigRlnMapParticles(**reconfig)
-
     out_dir = os.path.dirname(os.path.abspath(config.out_file))
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "rln_map_particles.json"), "w") as f:
-        f.write(reconfig.model_dump_json(indent=4))
+        json.dump(reconfig, f, indent=4)
 
 
 def main():
@@ -119,6 +124,8 @@ def main():
     config = parse_args()
     if config.out_file is None:
         config.out_file = config.coords_file
+    if config.particle_name_out is None:
+        config.particle_name_out = config.particle_name
     generate_config(config)
     
     # extract particle coordinates
@@ -154,7 +161,7 @@ def main():
     if os.path.splitext(config.out_file)[1] == '.json':
         print("Writing retained coordinates to a copick experiment")
         root = CopickRootFSSpec.from_file(config.out_file)
-        dataio.coords_to_copick(root, d_coords_sel, config.particle_name, config.session_id_out, config.user_id_out)
+        dataio.coords_to_copick(root, d_coords_sel, config.particle_name_out, config.session_id_out, config.user_id_out)
     elif os.path.splitext(config.out_file)[1] == '.star':
         print("Writing retained coordinates to a Relion-4 star file")
         dataio.make_starfile(d_coords_sel, config.out_file, coords_scale=1.0/config.apix)
