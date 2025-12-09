@@ -402,9 +402,7 @@ class CopickInterface:
         tomogram = run.get_voxel_spacing(voxel_spacing).get_tomogram(
             tomo_type=tomo_type,
         )
-        arrays = list(zarr.open(tomogram.zarr(), "r").arrays())
-        _, array = arrays[0]  # 0 corresponds to unbinned
-        return array
+        return tomogram.numpy()
 
     def get_run_coords(
         self,
