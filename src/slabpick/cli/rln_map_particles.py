@@ -150,6 +150,7 @@ def main():
     rln_particles = starfile.read(config.rln_file)["particles"]
     indices = np.array([fn.split("@")[0] for fn in rln_particles.rlnImageName.values]).astype(int)
     particles_map = pd.read_csv(config.map_file)
+    particles_map['tomogram'] = particles_map['tomogram'].astype(str)
     if config.rejected_set:
         print("Selecting the rejected particles")
         indices = np.setdiff1d(np.arange(len(particles_map)), indices)

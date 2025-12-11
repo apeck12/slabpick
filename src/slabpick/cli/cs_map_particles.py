@@ -181,6 +181,7 @@ def main():
     # map retained particles in cryosparc to gallery tiles
     cs_extract = np.load(config.cs_file)
     particles_map = pd.read_csv(config.map_file)
+    particles_map['tomogram'] = particles_map['tomogram'].astype(str)
     if len(particles_map) > 1e6:
         curated_map = csedit.curate_particles_map_iterative(
             cs_extract,
