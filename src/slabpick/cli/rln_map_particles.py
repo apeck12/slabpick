@@ -51,12 +51,6 @@ def parse_args():
         help="Copick user ID for input coordinates",
     )
     parser.add_argument(
-        "--out_file",
-        type=str,
-        required=False,
-        help="Output copick json or Relion-4 starfile",
-    )
-    parser.add_argument(
         "--particle_name_out",
         type=str,
         required=False,
@@ -107,8 +101,8 @@ def generate_config(config):
     reconfig["input"] = {k: d_config[k] for k in input_list}
     reconfig["parameters"] = {k: d_config[k] for k in parameter_list}
 
-    out_dir = os.path.dirname(os.path.abspath(config.map_file))
-    os.makedirs(out_dir, exist_ok=True)
+
+    out_dir = os.path.dirname(os.path.abspath(config.rln_file))
     with open(os.path.join(out_dir, "rln_map_particles.json"), "w") as f:
         json.dump(reconfig, f, indent=4)
 
@@ -139,9 +133,6 @@ def curate_data_session(d_coords: dict, curated_map_session: pd.DataFrame) -> di
 def main():
 
     config = parse_args()
-
-    if config.out_file is None:
-        config.out_file = config.coords_file
     if config.particle_name_out is None:
         config.particle_name_out = config.particle_name
     generate_config(config)
@@ -155,7 +146,6 @@ def main():
         print("Selecting the rejected particles")
         indices = np.setdiff1d(np.arange(len(particles_map)), indices)
     curated_map = particles_map.iloc[indices]
-
 
     # retrieve sessions that will be used and write parameter config
     if 'session' not in particles_map.columns:
