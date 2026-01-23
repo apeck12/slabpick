@@ -235,6 +235,7 @@ class Minislab:
         self.particle_index = []
         self.particle_tilt = []
         self.tomogram_id = []
+        self.session_id = []
         self.row_idx, self.col_idx, self.gallery_idx = [], [], []
 
     def make_minislabs(
@@ -242,6 +243,7 @@ class Minislab:
         coords: np.ndarray,
         volume: np.ndarray,
         tomo_id: str,
+        session_id: str="",
     ) -> None:
         """
         Generate minislabs from the specified volume and coordinates.
@@ -251,6 +253,7 @@ class Minislab:
         coords: (X,Y,Z) coordinates of particle centers in pixels
         volume: particle-containing tomogram
         tomo_id: tomogram name
+        session_id: session name
         """
         projs = generate_minislabs(
             coords,
@@ -268,6 +271,7 @@ class Minislab:
             list(np.repeat(np.arange(coords.shape[0]), len(self.angles))),
         )
         self.tomogram_id.extend(len(projs) * [tomo_id])
+        self.session_id.extend(len(projs) * [session_id])
 
     def make_one_gallery(
         self,
@@ -411,6 +415,7 @@ class Minislab:
         """
         df = pd.DataFrame(
             {
+                "session": self.session_id,
                 "tomogram": self.tomogram_id,
                 "particle": self.particle_index,
                 "tilt": self.particle_tilt,
@@ -450,6 +455,7 @@ class Minislab:
         # generate bookkeeping file
         df = pd.DataFrame(
             {
+                "session": self.session_id,
                 "tomogram": self.tomogram_id,
                 "particle": self.particle_index,
                 "tilt": self.particle_tilt,
@@ -460,9 +466,9 @@ class Minislab:
         return stack
 
 
-def make_minislabs_multi_entry(
-    in_coords: str,
-    in_vol: str,
+def make_minislabs_multisession(
+    in_coords: list[str],
+    in_vol: list[str],
     out_dir: str,
     extract_shape: tuple[int,int,int],
     voxel_spacing: float,
@@ -471,16 +477,20 @@ def make_minislabs_multi_entry(
     particle_name: str=None,
     user_id: str=None,
     session_id: str=None,
-    coords_scale: float=1,
-    col_name: str='rlnMicrographName',
     angles: list=[0],
     gshape: tuple[int,int]=(16,15),
     make_stack: bool=False,
     invert_contrast: bool=False,
-) -> None:
+    border_factor: float=1.1,
+    border_width: int=2,
+)->None:
     """
-    Entry point for generating minislabs from a Relion-4 starfile or 
-    copick coordinates and a directory of tomograms or copick volumes.
+    Generate minislabs from multiple copick sessions and associated volumes.
+    Coordinates are specified based on copick configuration files and expected
+    to share the same particle_name, session_id, and user_id across sessions.
+    Volumes can either be specified in the copick configuration files or a list
+    of volume directories, whose ordering must match the ordering of the copick
+    configuration files.
     
     Parameters
     ----------
@@ -494,35 +504,15 @@ def make_minislabs_multi_entry(
     particle_name: particle name
     user_id: copick user ID 
     session_id: copick session ID 
-    coords_scale: factor to convert starfile coords to Angstrom
-    col_name: column name cooresponding to tomogram name
     angles: angles if generating tilted minislabs
     gshape: gallery shape (nrows, ncols)
     make_stack: if True, generate particle stack instead of galleries
     invert_contrast: if True, invert default contrast
+    border_factor: multiplicative factor times mean for border value
+    border_width: number of border pixels for around each tile
     """
-    # load coordinates -- starfile entry
-    if os.path.splitext(in_coords)[-1] == ".star":
-        cp_interface = None
-        d_coords = dataio.read_starfile(
-            in_coords,
-            coords_scale=coords_scale,
-            col_name=col_name,
-        )
-    # load coordinates -- copick entry
-    elif os.path.splitext(in_coords)[-1] == ".json":
-        cp_interface = dataio.CopickInterface(in_coords)
-        d_coords = cp_interface.get_all_coords(
-            particle_name,
-            user_id=user_id,
-            session_id=session_id,
-        )
-    else:
-        raise ValueError("in_coords argument not recognized")
-
-    if cp_interface is None and os.path.splitext(in_vol)[-1] == ".json":
-        cp_interface = dataio.CopickInterface(in_vol)
     
+    os.makedirs(out_dir, exist_ok=True)
     extract_shape = (np.array(extract_shape)/voxel_spacing).astype(int)
     extract_shape = render_even(extract_shape)
 
@@ -532,112 +522,51 @@ def make_minislabs_multi_entry(
 
     n_tiles = np.prod(np.array(gshape))
     montage = Minislab(extract_shape, angles)
-    
-    for run_name in tqdm(d_coords):
-        print(f"Processing volume {run_name}")
-        # load volume -- directory entry 
-        if in_vol is not None and os.path.isdir(in_vol):
-            vol_name = os.path.join(in_vol, f"{run_name}.{extension}")
-            if extension == "mrc":
-                volume = dataio.load_mrc(vol_name)
-            elif extension == "zarr":
-                volume = np.array(zarr.open(vol_name, "r"))
-        # load volume -- copick entry
-        else:
-            volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
-        coords_pixels = d_coords[run_name] / voxel_spacing
-        montage.make_minislabs(coords_pixels, volume, run_name)
 
-        # write out galleries as sufficient minislabs accumulate
-        if len(montage.minislabs) > n_tiles and not make_stack:
-            goffset = montage.num_galleries
-            n_galleries = len(montage.minislabs) // n_tiles
-            for ng in range(n_galleries):
-                gstart = ng + goffset
-                key_list = np.arange(gstart*n_tiles, gstart*n_tiles+n_tiles).astype(int)
-                gallery = montage.make_one_gallery(gshape, key_list, contrast=contrast)
-                dataio.save_mrc(gallery, os.path.join(out_dir, f"particles_{montage.num_galleries-1:03d}.mrc"), apix=voxel_spacing)
-                for k in key_list:
-                    montage.minislabs.pop(k)
+    if in_vol is None:
+        in_vol = len(in_coords) * [None]
+        
+    for cp_project,vol_dir in zip(in_coords, in_vol):
+        print(f"Processing session {cp_project}")
+        cp_interface = dataio.CopickInterface(cp_project)
+        d_coords = cp_interface.get_all_coords(
+            particle_name,
+            user_id=user_id,
+            session_id=session_id,
+        )
+
+        for run_name in tqdm(d_coords):
+            print(f"Processing volume {run_name}")
+            if vol_dir is not None and os.path.isdir(vol_dir):
+                vol_name = os.path.join(vol_dir, f"{run_name}.{extension}")
+                if extension == "mrc":
+                    volume = dataio.load_mrc(vol_name)
+                elif extension == "zarr":
+                    volume = np.array(zarr.open(vol_name, "r"))
+            # load volume -- copick entry
+            else:
+                volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
+            coords_pixels = d_coords[run_name] / voxel_spacing
+            montage.make_minislabs(coords_pixels, volume, run_name, cp_project)
+
+            # write out galleries as sufficient minislabs accumulate
+            if len(montage.minislabs) > n_tiles and not make_stack:
+                goffset = montage.num_galleries
+                n_galleries = len(montage.minislabs) // n_tiles
+                for ng in range(n_galleries):
+                    gstart = ng + goffset
+                    key_list = np.arange(gstart*n_tiles, gstart*n_tiles+n_tiles).astype(int)
+                    gallery = montage.make_one_gallery(gshape, key_list, contrast=contrast, border_factor=border_factor, border_width=border_width)
+                    dataio.save_mrc(gallery, os.path.join(out_dir, f"particles_{montage.num_galleries-1:03d}.mrc"), apix=voxel_spacing)
+                    for k in key_list:
+                        montage.minislabs.pop(k)
 
     if not make_stack:
         key_list = list(montage.minislabs.keys())
-        gallery = montage.make_one_gallery(gshape, key_list, contrast=contrast)
+        gallery = montage.make_one_gallery(gshape, key_list, contrast=contrast, border_factor=border_factor, border_width=border_width)
         dataio.save_mrc(gallery, os.path.join(out_dir, f"particles_{montage.num_galleries-1:03d}.mrc"), apix=voxel_spacing)
         montage.make_gallery_bookkeeper(out_dir)
-    
+
     if make_stack:
         montage.make_stack(out_dir, voxel_spacing, contrast=contrast)
-
     
-def make_minislabs_live(
-    in_star: str,
-    in_vol: str,
-    out_dir: str,
-    extract_shape: tuple[int,int,int],
-    voxel_spacing: float,
-    coords_scale: float,
-    col_name: str='rlnMicrographName',
-    angles: list=[0],
-    gshape: tuple[int,int]=(16,15),
-    t_interval: float=300,
-    t_exit: float=1800,
-) -> None:
-    """
-    Live mode for generating minislabs. Volumes should be in a single
-    directory, while coordinates are derived from starfiles that are 
-    being generated live. Minislabs are output both as galleries and 
-    a particle stack.
-    
-    Parameters
-    ----------
-    in_star: glob-expandable path to star files
-    in_vol: directory containing tomograms in mrc format
-    out_dir: output directory
-    extract_shape: extraction shape in Angstrom along (X,Y,Z)
-    voxel_spacing: tomogram voxel spacing
-    coords_scale: factor to convert starfile coords to Angstrom
-    col_name: column name cooresponding to tomogram name
-    angles: angles if generating tilted minislabs
-    gshape: gallery shape (nrows, ncols)
-    t_interval: interval in seconds before checking for new files
-    t_exit: interval in seconds after which to exit if no new files found
-    """
-    start = time.time()
-    processed = []
-    
-    extract_shape = (np.array(extract_shape)/voxel_spacing).astype(int)
-    extract_shape = render_even(extract_shape)
-    
-    montage = Minislab(extract_shape, angles)
-    while True:
-        fnames = glob.glob(in_star)
-        fnames = [fn for fn in fnames if fn not in processed]
-        print(time.strftime("%X %x %Z"), f": Found {len(fnames)} new files to process")
-        
-        if len(fnames) > 0:
-            d_coords = dataio.combine_star_files(
-                fnames,
-                coords_scale=coords_scale,
-                col_name=col_name,
-            )
-            
-            for run_name in d_coords:
-                print(f"Processing volume {run_name}")
-                vol_name = os.path.join(in_vol, f"{run_name}.mrc")
-                volume = dataio.load_mrc(vol_name)
-                coords_pixels = d_coords[run_name] / voxel_spacing
-                montage.make_minislabs(coords_pixels, volume, run_name)
-                
-            montage.make_galleries_live(gshape, os.path.join(out_dir, "gallery"), voxel_spacing)
-            
-            processed.extend(fnames)
-            start_time = time.time()
-            
-        time.sleep(t_interval)
-        t_elapsed = time.time() - start_time
-        if t_elapsed > t_exit:
-            break
-            
-    montage.make_galleries_live(gshape, os.path.join(out_dir, "gallery"), voxel_spacing, final=True)
-    montage.make_stack(os.path.join(out_dir, "stack"), voxel_spacing)

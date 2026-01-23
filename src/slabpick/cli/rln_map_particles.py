@@ -3,6 +3,7 @@ import json
 import numpy as np
 import pandas as pd
 import starfile
+from tqdm import tqdm
 from argparse import ArgumentParser
 import slabpick.dataio as dataio
 from copick.impl.filesystem import CopickRootFSSpec
@@ -40,13 +41,13 @@ def parse_args():
     parser.add_argument(
         "--session_id",
         type=str,
-        required=False,
+        required=True,
         help="Copick session ID for input coordinates",
     )
     parser.add_argument(
         "--user_id",
         type=str,
-        required=False,
+        required=True,
         help="Copick user ID for input coordinates",
     )
     parser.add_argument(
@@ -58,7 +59,7 @@ def parse_args():
     parser.add_argument(
         "--session_id_out",
         type=str,
-        required=False,
+        required=True,
         help="Copick session ID for output",
     )
     parser.add_argument(
