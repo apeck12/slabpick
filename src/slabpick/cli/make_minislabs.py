@@ -1,8 +1,6 @@
 import os
 from argparse import ArgumentParser
-
 import slabpick.minislab as minislab
-from slabpick.settings import ProcessingConfigMakeMinislabs
 
 
 def parse_args():
@@ -134,8 +132,6 @@ def generate_config(config):
     used_keys = [p for param in used_keys for p in param]
     param_keys = [key for key in d_config if key not in used_keys]
     reconfig["parameters"] = {k: d_config[k] for k in param_keys}
-
-    reconfig = ProcessingConfigMakeMinislabs(**reconfig)
 
     os.makedirs(config.out_dir, exist_ok=True)
     with open(os.path.join(config.out_dir, "make_minislabs.json"), "w") as f:
