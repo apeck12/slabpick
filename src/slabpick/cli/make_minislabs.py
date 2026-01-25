@@ -135,7 +135,7 @@ def generate_config(config):
 
     os.makedirs(config.out_dir, exist_ok=True)
     with open(os.path.join(config.out_dir, "make_minislabs.json"), "w") as f:
-        f.write(reconfig.model_dump_json(indent=4))
+        json.dump(reconfig, f, indent=4)
 
 
 def main():
