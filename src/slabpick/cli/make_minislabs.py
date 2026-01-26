@@ -1,3 +1,4 @@
+import json
 import os
 from argparse import ArgumentParser
 import slabpick.minislab as minislab
