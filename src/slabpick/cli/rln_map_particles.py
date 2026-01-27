@@ -29,7 +29,7 @@ def parse_args():
     parser.add_argument(
         "--coords_file",
         type=str,
-        required=True,
+        required=False,
         help="Copick json file specifying coordinates",
     )
     parser.add_argument(
