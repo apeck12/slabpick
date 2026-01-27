@@ -1,8 +1,7 @@
+import json
 import os
 from argparse import ArgumentParser
-
 import slabpick.minislab as minislab
-from slabpick.settings import ProcessingConfigMakeMinislabs
 
 
 def parse_args():
@@ -15,12 +14,14 @@ def parse_args():
         "--in_coords",
         type=str,
         required=True,
+        nargs="+",
         help="Coordinate file(s) as one or multiple starfiles or a copick config file",
     )
     parser.add_argument(
         "--in_vol",
         type=str,
         required=False,
+        nargs="*",
         help="Directory containing volumes or a copick config file",
     )
     parser.add_argument(
@@ -41,20 +42,6 @@ def parse_args():
         type=float,
         required=True,
         help="Pixel size of tomograms to extract minislabs from in Angstrom",
-    )
-    parser.add_argument(
-        "--coords_scale",
-        type=float,
-        required=False,
-        default=1,
-        help="Multiplicative factor to convert input coords to Angstrom",
-    )
-    parser.add_argument(
-        "--col_name",
-        type=str,
-        required=False,
-        default="rlnTomoName",
-        help="Tomogram column name in starfile(s)",
     )
     parser.add_argument(
         "--extension",
@@ -114,24 +101,18 @@ def parse_args():
         help="Invert default contrast",
     )
     parser.add_argument(
-        "--live",
+        "--border_factor",
+        type=float,
+        default=1.1,
         required=False,
-        action="store_true",
-        help="Live processing mode, generating one gallery per tomogram",
+        help="Multiplicative factor times mean for gallery border value",
     )
     parser.add_argument(
-        "--t_interval",
+        "--border_width",
+        type=int,
+        default=2,
         required=False,
-        type=float,
-        default=300,
-        help="Interval in seconds between checking for new files",
-    )
-    parser.add_argument(
-        "--t_exit",
-        required=False,
-        type=float,
-        default=1800,
-        help="Interval in seconds after which to exit if new files not found",
+        help="Number of border pixels for around each tile",
     )
 
     return parser.parse_args()
@@ -153,11 +134,9 @@ def generate_config(config):
     param_keys = [key for key in d_config if key not in used_keys]
     reconfig["parameters"] = {k: d_config[k] for k in param_keys}
 
-    reconfig = ProcessingConfigMakeMinislabs(**reconfig)
-
     os.makedirs(config.out_dir, exist_ok=True)
     with open(os.path.join(config.out_dir, "make_minislabs.json"), "w") as f:
-        f.write(reconfig.model_dump_json(indent=4))
+        json.dump(reconfig, f, indent=4)
 
 
 def main():
@@ -165,45 +144,24 @@ def main():
     config = parse_args()
     generate_config(config)
 
-    # coordinates provided as multiple starfiles
-    if config.in_coords[-4:] == "star" and "*" in config.in_coords:
-        if not config.live:
-            config.t_interval = config.t_exit = 0
-
-        minislab.make_minislabs_live(
-            config.in_coords,
-            config.in_vol,
-            config.out_dir,
-            config.extract_shape,
-            config.voxel_spacing,
-            config.coords_scale,
-            col_name=config.col_name,
-            angles=config.angles,
-            gshape=tuple(config.gallery_shape),
-            t_interval=config.t_interval,
-            t_exit=config.t_exit,
-        )
-
-    # all other entrypoints
-    else:
-        minislab.make_minislabs_multi_entry(
-            config.in_coords,
-            config.in_vol,
-            config.out_dir,
-            config.extract_shape,
-            config.voxel_spacing,
-            extension=config.extension,
-            tomo_type=config.tomo_type,
-            particle_name=config.particle_name,
-            user_id=config.user_id,
-            session_id=config.session_id,
-            coords_scale=config.coords_scale,
-            col_name=config.col_name,
-            angles=config.angles,
-            gshape=tuple(config.gallery_shape),
-            make_stack=config.make_stack,
-            invert_contrast=config.invert_contrast,
-        )
+    minislab.make_minislabs_multisession(
+        config.in_coords,
+        config.in_vol,
+        config.out_dir,
+        config.extract_shape,
+        config.voxel_spacing,
+        extension=config.extension,
+        tomo_type=config.tomo_type,
+        particle_name=config.particle_name,
+        user_id=config.user_id,
+        session_id=config.session_id,
+        angles=config.angles,
+        gshape=tuple(config.gallery_shape),
+        make_stack=config.make_stack,
+        invert_contrast=config.invert_contrast,
+        border_factor=config.border_factor,
+        border_width=config.border_width,
+    )
         
     
 if __name__ == "__main__":
