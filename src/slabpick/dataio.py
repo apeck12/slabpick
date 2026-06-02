@@ -399,7 +399,10 @@ class CopickInterface:
         array: volume
         """
         run = self.root.get_run(run_name)
-        tomogram = run.get_voxel_spacing(voxel_spacing).get_tomogram(
+        vs = run.get_voxel_spacing(voxel_spacing)
+        if vs is None:
+            return None
+        tomogram = vs.get_tomogram(
             tomo_type=tomo_type,
         )
         return tomogram.numpy()

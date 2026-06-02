@@ -546,6 +546,8 @@ def make_minislabs_multisession(
             # load volume -- copick entry
             else:
                 volume = cp_interface.get_run_tomogram(run_name, voxel_spacing, tomo_type)
+                if volume is None:
+                    continue
             coords_pixels = d_coords[run_name] / voxel_spacing
             montage.make_minislabs(coords_pixels, volume, run_name, cp_project)
 
