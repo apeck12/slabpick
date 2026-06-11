@@ -118,6 +118,7 @@ def make_stack_starfile(
     voltage: float = 300.0,
     cs: float = 2.7,
     amplitude_contrast: float = 0.1,
+    eulers: np.ndarray = None,
 ):
     """
     Generate a Relion-compatible starfile for a particle stack.
@@ -131,6 +132,7 @@ def make_stack_starfile(
     voltage: microscope voltage
     cs: spherical aberration coefficient
     amplitude contrast: amplitude contrast
+    eulers: array of Euler angles in Relion-convention
     """
     fname = os.path.basename(in_stack)
     apix_tomo = get_voxel_size(in_stack)
@@ -153,6 +155,10 @@ def make_stack_starfile(
     grp_particles["rlnImageName"] = [f"{num}@{fname}" for num in range(n_particles)]
     grp_particles["rlnOpticsGroup"] = n_particles * [1]
     grp_particles["rlnGroupNumber"] = n_particles * [1]
+    if eulers is not None:
+        grp_particles["rlnAngleRot"] = eulers[:,0]
+        grp_particles["rlnAngleTilt"] = eulers[:,1]
+        grp_particles["rlnAnglePsi"] = eulers[:,2]
 
     dstack = {}
     dstack["optics"] = pd.DataFrame.from_dict(grp_optics)
