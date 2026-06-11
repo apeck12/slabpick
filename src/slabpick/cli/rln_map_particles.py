@@ -143,8 +143,12 @@ def main():
     generate_config(config)
     
     # map retained particles from Relion back to gallery tiles
+    # note that the starfile written by slabpick is 0-indexed
+    # however, Relion ignores this to enforce 1-indexing, which
+    # means that the indices have to be modified to account for this
+    print("Adjusting for Relion's enforcement of 1-indexing")
     rln_particles = starfile.read(config.rln_file)["particles"]
-    indices = np.array([fn.split("@")[0] for fn in rln_particles.rlnImageName.values]).astype(int)
+    indices = np.array([fn.split("@")[0] for fn in rln_particles.rlnImageName.values]).astype(int) - 1
     particles_map = pd.read_csv(config.map_file)
     particles_map['tomogram'] = particles_map['tomogram'].astype(str)
     if config.rejected_set:
