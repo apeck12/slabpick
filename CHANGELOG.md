@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.2](https://github.com/apeck12/slabpick/compare/slabpick-v1.0.1...slabpick-v1.0.2) (2026-06-22)
+
+
+### 🐞 Bug Fixes
+
+* remove top level ([#33](https://github.com/apeck12/slabpick/issues/33)) ([62b1adc](https://github.com/apeck12/slabpick/commit/62b1adc94c8bc72ece762ea15f627dd6a6dcc3e4))
+* remove top level concurrency ([62b1adc](https://github.com/apeck12/slabpick/commit/62b1adc94c8bc72ece762ea15f627dd6a6dcc3e4))
+
 ## [1.0.1](https://github.com/apeck12/slabpick/compare/slabpick-v1.0.0...slabpick-v1.0.1) (2026-06-22)
 
 
