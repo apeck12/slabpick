@@ -1,0 +1,28 @@
+{
+  "release-type": "python",  
+  "changelog-sections": [
+    { "type": "feat", "section": "✨ Features" },
+    { "type": "fix", "section": "🐞 Bug Fixes" },
+    { "type": "perf", "section": "⚡️ Performance Improvements" },
+    { "type": "revert", "section": "↩️ Reverts" },
+    { "type": "docs", "section": "📝 Documentation" },
+    { "type": "style", "section": "💅 Styles" },
+    { "type": "chore", "section": "🧹 Miscellaneous Chores" },
+    { "type": "refactor", "section": "♻️ Code Refactoring" },
+    { "type": "test", "section": "🧪 Tests" },
+    { "type": "build", "section": "🛠️ Build System" },
+    { "type": "ci", "section": "⚙ Continuous Integration" }
+  ],
+  "packages": {
+    ".": {
+      "package-name": "octopi",
+      "version-file": "octopi/__init__.py",      
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": false,
+      "draft": false,
+      "prerelease": false,
+      "pull-request-footer": "Merpi on PyPI."
+    }
+  }
+}
