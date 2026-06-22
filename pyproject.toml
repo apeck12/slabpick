@@ -9,8 +9,7 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: MIT License",
 ]
-#dynamic = ["version"]
-version = "0.1.0"
+dynamic = ["version"]
 dependencies = [
     "copick",
     "pydantic",
@@ -31,6 +30,9 @@ description = "Tools for particle picking from 2d projections."
 readme = "README.md"
 license = {file = "LICENSE"}
 keywords = ["cryoet", "cryo-et", "tomography"]
+
+[tool.hatch.version]
+path = "src/slabpick/__init__.py"
 
 [project.urls]
 Repository = "https://github.com/slabpick/slabpick.git"

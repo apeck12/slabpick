@@ -15,14 +15,14 @@
   ],
   "packages": {
     ".": {
-      "package-name": "octopi",
-      "version-file": "octopi/__init__.py",      
+      "package-name": "slabpick",
+      "version-file": "slabpick/__init__.py",      
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": false,
       "bump-patch-for-minor-pre-major": false,
       "draft": false,
       "prerelease": false,
-      "pull-request-footer": "Merpi on PyPI."
+      "pull-request-footer": "Slabpick on PyPI."
     }
   }
 }
