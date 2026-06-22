@@ -6,16 +6,14 @@ on:
     branches:
       - main
   pull_request:
-
-# cancel in-progress runs that use the same workflow and branch
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
+    
 jobs:
   release-please:
     name: Create Release PRs
     runs-on: ubuntu-latest
+    concurrency:
+      group: release-please-${{ github.ref }}
+      cancel-in-progress: true
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
