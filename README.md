@@ -8,6 +8,8 @@ curated in CryoSPARC or by Relion's 2D class averaging routine are also included
 
 ## Instructions for use
 
+### Slabpick with CryoSPARC
+
 The `make_minislabs` command will generate either galleries (per-particle projections tiled
 into mock micrographs) for use in CryoSPARC or particle stacks for use in Relion.
 
@@ -23,4 +25,6 @@ cs_center_picks —cs_file /path/to/picked_particles.cs —map_file path/to/gall
 4. After 2D classification, particles can be mapped back to a copick project or a Relion-4 starfile
 using the `cs_map_particles` command.
 
-Details for use in Relion to follow.
+### Slabpick with RELION
+
+Refer to the [Documentation](https://chanzuckerberg.github.io/py2rely/user-guide/2d-slab-classification/) for details
